@@ -1,32 +1,50 @@
-# Claim-Rejection-Forcaster
-Healthcare Revenue Gap &amp; Claim Rejection Forecasting Engine
-# Healthcare Revenue Gap & Claim Rejection Forecasting Engine
+# Healthcare Claims ML Forecaster (ZPM & Youth Care)
 
-An end-to-end data pipeline and ensemble machine learning engine built to analyze healthcare claims, model budget ceiling utilization, and forecast year-end revenue gaps for **ZPM** (Zorgprestatiemodel) and **Jeugdtraject** care frameworks.
+This Jupyter Notebook automates the processing, trend analysis, and end-of-year financial forecasting for healthcare declarations. It applies a Machine Learning ensemble to historical claim data to predict the total annual approved funds (`Sum_received`) and tracks cumulative claims against insurer contract ceilings (`Contract-plafond`). 
 
----
+The pipeline handles two distinct healthcare funding streams:
+1. **ZPM** (Zorgprestatiemodel - Adult Mental Health Care) via `Zorggroep` and `Uzovi` codes.
+2. **Youth Care** (Jeugdtraject) via `Jeugdzorgregio-naam`.
 
-#  Executive Summary & Architecture
+## Key Features
 
-In Dutch healthcare operations, claim rejections and unmonitored contract ceilings (*Contract-plafonds*) directly result in multi-hundred-thousand-euro revenue leakages. This project processes historical and current claim lists (`Lijst declaraties`) across major insurers (*Zorggroepen*) to:
+* **Automated Data Cleaning:** Reads directly from standardized financial Excel exports (skipping header metadata rows), maps UZOVI provider codes to specific health insurance groups (e.g., Insurer A, Insurer B, Insurer C), and handles missing values.
+* **Feature Engineering:** Calculates average claim values, total claim volumes, and year-to-date (YTD) cumulative claim trends (daily run-rate slope) per region or healthcare provider group.
+* **Ensemble Machine Learning:** Uses a `VotingRegressor` combining five distinct models to predict the final year-end totals:
+  * Linear Regression
+  * Ridge Regression
+  * Lasso Regression
+  * Random Forest Regressor
+  * Gradient Boosting Regressor
+* **Ceiling Monitoring:** Maps current and projected claims against predefined insurer contract limits to identify potential budget overruns.
+* **Time-Series Extrapolation:** Generates projected future records estimating the cumulative trajectory up to the end of the financial year for dashboarding and internal reporting.
 
-1. **Clean & Parse Dynamic Excel Schemas:** Automated ingestion starting from dynamic header indices (e.g., Row 6 offset handling).
-2. **Feature Engineering & Historical Tracking:** Extract YTD cumulative claim trends, calculate average claim acceptance, and map unique codes to care provider groups.
-3. **Ensemble Machine Learning Pipeline:** Predict total year-end accepted claim sums (`Predicted_Sum_received`) using a blended Voting Regressor.
-4. **Trajectory & Ceiling Projection:** Calculate daily linear burn rates to project future claim performance through December 31st against strict contract ceilings.
+## Required Input Files
 
----
+Place the following Excel files in the same directory as the notebook. The script expects data tables to begin on **Row 6** (`header=5`) across all inputs:
 
-# Tech Stack & Methods
+* `Lijst declaraties.xlsx`: Active declarations and claims for the current operating year.
+* `Lijst declaraties historie.xlsx`: Historical claims data from prior years used to train the machine learning models.
+* `ZPM-contract-plafond verzekeraars.xlsx`: Contract ceilings defining maximum allowable claim budgets per `Zorggroep`.
 
-* **Language:** Python 3.9
-* **Data Processing:** `pandas`, `numpy`, `openpyxl`
-* **Machine Learning:** `scikit-learn`
-  * **Linear Models:** `LinearRegression`, `Ridge`, `Lasso`
-  * **Tree-Based Ensembles:** `RandomForestRegressor`, `GradientBoostingRegressor`
-  * **Meta-Estimator:** `VotingRegressor` (Model Averaging)
-* **Metrics:** Mean Absolute Error (MAE), Coefficient of Determination ($R^2$)
+## Dependencies
 
----
+The script requires Python 3 and the following dependencies:
 
-# Predictive Modeling & Engineering Pipeline
+```bash
+pip install pandas scikit-learn openpyxl
+```
+
+## Technical Pipeline
+
+1. **Historical Baseline:** Parses historical declaration records to extract target variables (`Sum_received`) and training features (`Avg_received`, `Nbr_Claims`, encoded region/group categories, and daily claim trends).
+2. **Current Year Setup:** Filters active operational datasets for the current target period and calculates matching YTD feature metrics.
+3. **Model Training:** Applies one-hot encoding to provider/region categoricals and fits the `VotingRegressor` ensemble on historical data.
+4. **Prediction & Performance Evaluation:** Evaluates ensemble outputs using Mean Absolute Error (MAE) and R² metrics, outputting group-level forecasts.
+5. **Run-Rate Extrapolation:** Calculates linear daily run-rates for active claims to generate `cumulative_prediction` timelines through year-end (`YYYY-12-31`).
+
+## Output
+
+The notebook processes both ZPM and Youth Care segments sequentially and generates a final consolidated output:
+
+* **`PREDICTIONS.xlsx`**: A cleaned Excel workbook containing chronological data points per provider/region, including historical claim totals, defined contract ceilings, and ML-generated year-end projections.
